@@ -5,7 +5,7 @@
   "description": "數位名片 + 線上預約系統 —— 客戶自己選時段，自動進你的 Google 日曆",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "db:push": "prisma db push",
