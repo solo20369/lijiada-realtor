@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { isCurrentUserAdmin } from "@/lib/admin-check";
 import {
   intentEmoji,
@@ -299,7 +301,23 @@ export default async function AppointmentsAdminPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  if (!(await isCurrentUserAdmin())) throw new Error("權限不足");
+  // 還沒登入 → 帶去 Google 登入，登入完再帶回這一頁
+  const session = await auth();
+  if (!session) redirect("/api/auth/signin?callbackUrl=%2Fadmin%2Fappointments");
+
+  // 登入了，但信箱不在白名單 → 清楚告知，不是讓畫面直接當掉
+  if (!(await isCurrentUserAdmin())) {
+    return (
+      <div style={{ padding: "4rem 2rem", textAlign: "center", fontFamily: "system-ui" }}>
+        <h1 style={{ fontSize: "1.25rem", marginBottom: "0.5rem" }}>此帳號沒有後台權限</h1>
+        <p style={{ color: "#666" }}>
+          已用 {session.user?.email ?? "此帳號"} 登入，但不在允許名單內。
+          <br />
+          如果這是你本人的帳號，請確認 <code>APPOINTMENT_ADMIN_EMAIL</code> 有設定這個信箱。
+        </p>
+      </div>
+    );
+  }
 
   const sp = await searchParams;
   const queue = QUEUES.some((item) => item.key === sp.queue) ? (sp.queue as AppointmentQueue) : "all";
