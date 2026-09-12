@@ -41,5 +41,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
-  pages: { signIn: "/api/auth/signin" },
+  // 🔴 不要設 pages.signIn ——
+  //    "/api/auth/signin" 本來就是 next-auth 內建的登入頁網址，
+  //    指過去等於叫它「把使用者導向自己」，會變成無限跳轉 (ERR_TOO_MANY_REDIRECTS)。
+  //    留空就會用內建的那一頁，正常運作。
 });
