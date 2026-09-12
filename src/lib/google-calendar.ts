@@ -307,7 +307,12 @@ export async function getBusyRangesStrict(
   if (!isGoogleConfigured()) return [];
   try {
     const refresh = await getConfig("google_refresh_token");
-    if (!refresh) throw new GoogleCalendarUnavailableError("not_bound");
+    // 🔴 「從來沒綁過日曆」不等於「日曆壞掉」——
+    //    沒綁過就是沒有行程要擋，回 [] 走純規則制（跟還沒設 AUTH_GOOGLE_* 時一樣）。
+    //    這裡若 throw，只要系統擁有者設了 AUTH_GOOGLE_*（後台登入用）卻還沒綁日曆，
+    //    整個選時段就會 503，客戶完全約不了。
+    //    真正該保守擋住的是「綁過但現在拿不到資料」——那才可能漏看既有行程。
+    if (!refresh) return [];
     const token = await getAccessToken();
     if (!token) throw new GoogleCalendarUnavailableError("token_unavailable");
     return await fetchBusyRanges(token, fromIso, toIso, options?.excludeEventId);
