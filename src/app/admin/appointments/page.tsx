@@ -387,7 +387,7 @@ export default async function AppointmentsAdminPage({
               先處理逾時與異常，再追蹤到場、結果及實際成交。
             </p>
           </div>
-          <div style={{ color: googleBound ? "#4ade80" : "#fbbf24", fontSize: 15, fontWeight: 800 }}>
+          <div style={{ color: googleBound ? "#4ade80" : "#fbbf24", fontSize: 15, fontWeight: 800, textAlign: "right" }}>
             <StatusDot tone={googleBound ? "green" : "yellow"} title={googleBound ? "已綁定" : "未綁定"} />
             {" "}
             {googleBound
@@ -395,6 +395,29 @@ export default async function AppointmentsAdminPage({
               : googleConfigured
                 ? "Google 日曆尚未綁定"
                 : "Google 日曆尚未設定"}
+            {/* 🔴 2026-09-12 補：這顆按鈕原本不存在。
+                後端 /api/appointment/google/auth 早就寫好了，但整個後台沒有任何地方連過去 ——
+                等於門做好了卻沒有裝門把，狀態永遠停在「尚未綁定」而使用者無從綁起。 */}
+            {googleConfigured ? (
+              <div style={{ marginTop: 9 }}>
+                <a
+                  href="/api/appointment/google/auth"
+                  style={{
+                    display: "inline-block",
+                    background: googleBound ? "transparent" : "#4faf38",
+                    color: googleBound ? "#94a3b8" : "#173d30",
+                    border: googleBound ? "1px solid #2a3441" : "none",
+                    borderRadius: 10,
+                    padding: "8px 15px",
+                    fontSize: 14,
+                    fontWeight: 800,
+                    textDecoration: "none",
+                  }}
+                >
+                  {googleBound ? "重新綁定" : "綁定 Google 日曆"}
+                </a>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -404,6 +427,14 @@ export default async function AppointmentsAdminPage({
         {sp.google === "fail" ? (
           <div style={{ color: "#fb7185", marginBottom: 12, fontSize: 15 }}>
             Google 日曆綁定失敗，請確認 OAuth 設定後重試。
+          </div>
+        ) : null}
+        {/* 🔴 2026-09-12 補：callback 會回 google=state_invalid，但這裡原本沒接，
+            使用者會看到一片空白、不知道剛剛發生什麼事。靜默失敗比明白的失敗更難查。 */}
+        {sp.google === "state_invalid" ? (
+          <div style={{ color: "#fbbf24", marginBottom: 12, fontSize: 15, lineHeight: 1.8 }}>
+            安全驗證碼對不上，這次綁定沒有完成（通常是中途換了瀏覽器、開了無痕視窗，或停留超過 10 分鐘）。
+            請重新按一次「綁定 Google 日曆」，並在同一個視窗裡一次做完。
           </div>
         ) : null}
 
