@@ -21,6 +21,7 @@ import {
   type OpenDay,
 } from "@/lib/appointment-constants";
 import { SOCIAL } from "../_links";
+import Turnstile from "./Turnstile";
 import styles from "./Booking.module.css";
 import {
   TRACKING_CONSENT_CHANGED_EVENT,
@@ -257,6 +258,9 @@ export default function BookingForm() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // 人機驗證：沒設 site key 就不顯示驗證框，也不擋送出（跟後端行為一致）
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [done, setDone] = useState<DoneState | null>(null);
   const [sessionId, setSessionId] = useState("");
   const [trackingEnabled, setTrackingEnabled] = useState(false);
@@ -641,6 +645,7 @@ export default function BookingForm() {
           qualification: qualificationPayload,
           note: note.trim(),
           website,
+          turnstileToken,
           funnelSessionId: trackingEnabled ? sessionId : "",
           idempotencyKey: key,
           tracking: {
@@ -1163,8 +1168,17 @@ export default function BookingForm() {
               </div>
 
               {submitError ? <div className={styles.errorNotice} role="alert">{submitError}</div> : null}
-              <button className={styles.submit} type="submit" disabled={submitting}>
-                {submitting ? "正在保留時段…" : "送出並保留時段"}
+              <Turnstile siteKey={turnstileSiteKey} onToken={setTurnstileToken} />
+              <button
+                className={styles.submit}
+                type="submit"
+                disabled={submitting || (Boolean(turnstileSiteKey) && !turnstileToken)}
+              >
+                {submitting
+                  ? "正在保留時段…"
+                  : turnstileSiteKey && !turnstileToken
+                    ? "驗證中，請稍候…"
+                    : "送出並保留時段"}
               </button>
               <p className={styles.submitHint}>
                 送出後時段先保留 {BOOKING_CONFIRMATION_HOLD_MINUTES} 分鐘。請到 Email 點確認連結，才算正式預約完成。
