@@ -43,6 +43,7 @@ import {
   isGoogleConfigured,
 } from "@/lib/google-calendar";
 import { getClientIp } from "@/lib/rate-limit";
+import { runAppointmentOutboxOnce } from "@/lib/appointment-outbox-worker";
 import { enqueueAppointmentAnalyticsEvent } from "@/lib/appointment-analytics";
 import { getCurrentTrackingConsent } from "@/lib/tracking-consent-server";
 import {
@@ -116,6 +117,14 @@ function publicResponse(appt: AppointmentRow) {
 }
 
 async function enqueueCreatedAppointmentTasks(appt: AppointmentRow): Promise<void> {
+  await enqueueCreatedAppointmentTasksInner(appt);
+  // 🔴 排完立刻跑一輪 ——
+  //    Vercel 免費方案的 Cron 一天只能一次，光靠排程客戶要等到隔天才收到信。
+  //    runAppointmentOutboxOnce 內部整支包 try/catch，不會把錯誤丟出來害預約失敗。
+  await runAppointmentOutboxOnce(10);
+}
+
+async function enqueueCreatedAppointmentTasksInner(appt: AppointmentRow): Promise<void> {
   if (appt.status === "pending_confirmation") {
     await Promise.all([
       enqueueAppointmentOutbox({

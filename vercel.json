@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/appointment-outbox",
-      "schedule": "* * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }

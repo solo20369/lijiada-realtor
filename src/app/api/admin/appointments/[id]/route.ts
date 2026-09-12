@@ -28,6 +28,7 @@ import {
   updateAppointmentOperations,
 } from "@/lib/appointment";
 import { isGoogleConfigured } from "@/lib/google-calendar";
+import { runAppointmentOutboxOnce } from "@/lib/appointment-outbox-worker";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,8 @@ const num = (v: unknown): number | null =>
 async function enqueue(tasks: Promise<void>[]): Promise<boolean> {
   try {
     await Promise.all(tasks);
+    // 排完立刻跑，不然免費方案要等到隔天的排程才寄
+    await runAppointmentOutboxOnce(10);
     return true;
   } catch (error) {
     console.error("[admin/appointments] enqueue failed:", error);
