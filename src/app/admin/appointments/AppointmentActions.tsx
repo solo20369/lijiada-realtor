@@ -86,6 +86,8 @@ export default function AppointmentActions(props: Props) {
   const [newSlot, setNewSlot] = useState("");
   const [durationMin, setDurationMin] = useState("preserve");
   const [purged, setPurged] = useState(false);
+  const [showPurge, setShowPurge] = useState(false);
+  const [purgeConfirmText, setPurgeConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ tone: "success" | "warning" | "danger"; text: string } | null>(null);
 
@@ -211,18 +213,14 @@ export default function AppointmentActions(props: Props) {
    * 個資刪除請求 —— 永久刪除，沒有回收桶。
    * 🔴 2026-09-13 新增。「取消預約」只是改狀態，客戶的姓名電話 Email 備註全都還在庫裡；
    *    客戶依《個資法》要求刪除時，在此之前只能請工程人員連進資料庫手動清。
-   * 刻意要求手動輸入 DELETE，不用單純的「確定嗎」對話框 —— 誤點的代價是不可回復的。
+   *
+   * 🔴 不用 window.prompt：原生對話框會被某些瀏覽器情境直接吞掉（無痕、自動化、
+   *    「不要再顯示對話框」勾選過），按了完全沒反應 —— 就是我們一路在修的那種靜默失效。
+   *    改成頁面內的確認區塊，狀態看得見，手機上也好操作。
    */
   const purge = async () => {
-    const typed = window.prompt(
-      "⚠️ 這會永久刪除這筆預約的所有資料：姓名、電話、Email、備註、跟進紀錄、通知紀錄，" +
-        "以及已建立的 Google 日曆事件。\n\n" +
-        "刪除後無法復原，也無法再從後台查到這位客戶。\n\n" +
-        "確定要刪除請輸入大寫 DELETE：",
-    );
-    if (typed === null) return;
-    if (typed.trim() !== "DELETE") {
-      setNotice({ tone: "warning", text: "輸入的字不是 DELETE，已取消刪除。" });
+    if (purgeConfirmText.trim() !== "DELETE") {
+      setNotice({ tone: "warning", text: "請在欄位裡輸入大寫 DELETE 才能刪除。" });
       return;
     }
     const result = await post({ action: "purge", confirm: "DELETE" });
@@ -337,13 +335,73 @@ export default function AppointmentActions(props: Props) {
         <button
           type="button"
           disabled={busy}
-          onClick={() => void purge()}
+          onClick={() => {
+            setShowPurge((value) => !value);
+            setPurgeConfirmText("");
+          }}
           style={{ ...buttonStyle("danger"), marginLeft: "auto", opacity: busy ? 0.62 : 0.75 }}
           title="永久刪除這筆客戶資料（個資法刪除請求用），不可復原"
         >
           🗑 永久刪除個資
         </button>
       </div>
+
+      {showPurge ? (
+        <div
+          style={{
+            marginTop: 12,
+            padding: "14px 16px",
+            borderRadius: 10,
+            border: "1px solid #7f1d34",
+            background: "rgba(244,63,94,0.08)",
+            color: "#fb7185",
+            fontSize: 14.5,
+            lineHeight: 1.85,
+          }}
+        >
+          <b>⚠️ 這個動作不可復原。</b>
+          <div style={{ color: CIS.textSub, marginTop: 4 }}>
+            會永久刪除這位客戶的姓名、電話、Email、備註、跟進紀錄與通知紀錄，
+            並撤除已建立的 Google 日曆事件。刪除後後台再也查不到這筆。
+            <br />
+            只是想釋出時段、資料要留著的話，請改按「取消預約」。
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 11, flexWrap: "wrap", alignItems: "center" }}>
+            <input
+              value={purgeConfirmText}
+              onChange={(event) => setPurgeConfirmText(event.target.value)}
+              placeholder="請輸入 DELETE"
+              aria-label="輸入 DELETE 以確認永久刪除"
+              style={{
+                minHeight: 40,
+                padding: "8px 12px",
+                borderRadius: 7,
+                border: `1px solid ${CIS.cardBorder}`,
+                background: "rgba(0,0,0,0.25)",
+                color: CIS.text,
+                fontSize: 15,
+                letterSpacing: 1,
+                width: 170,
+              }}
+            />
+            <button
+              type="button"
+              disabled={busy || purgeConfirmText.trim() !== "DELETE"}
+              onClick={() => void purge()}
+              style={{
+                ...buttonStyle("danger"),
+                opacity: busy || purgeConfirmText.trim() !== "DELETE" ? 0.45 : 1,
+                cursor: purgeConfirmText.trim() === "DELETE" && !busy ? "pointer" : "default",
+              }}
+            >
+              確認永久刪除
+            </button>
+            <button type="button" disabled={busy} onClick={() => setShowPurge(false)} style={buttonStyle("neutral")}>
+              不要刪
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {!inactive ? (
         <label style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 10, color: CIS.textMute, fontSize: 14 }}>
