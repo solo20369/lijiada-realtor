@@ -85,6 +85,7 @@ export default function AppointmentActions(props: Props) {
   const [showReschedule, setShowReschedule] = useState(false);
   const [newSlot, setNewSlot] = useState("");
   const [durationMin, setDurationMin] = useState("preserve");
+  const [purged, setPurged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ tone: "success" | "warning" | "danger"; text: string } | null>(null);
 
@@ -206,6 +207,28 @@ export default function AppointmentActions(props: Props) {
     await post({ action: "resend_customer_confirmation" });
   };
 
+  /**
+   * 個資刪除請求 —— 永久刪除，沒有回收桶。
+   * 🔴 2026-09-13 新增。「取消預約」只是改狀態，客戶的姓名電話 Email 備註全都還在庫裡；
+   *    客戶依《個資法》要求刪除時，在此之前只能請工程人員連進資料庫手動清。
+   * 刻意要求手動輸入 DELETE，不用單純的「確定嗎」對話框 —— 誤點的代價是不可回復的。
+   */
+  const purge = async () => {
+    const typed = window.prompt(
+      "⚠️ 這會永久刪除這筆預約的所有資料：姓名、電話、Email、備註、跟進紀錄、通知紀錄，" +
+        "以及已建立的 Google 日曆事件。\n\n" +
+        "刪除後無法復原，也無法再從後台查到這位客戶。\n\n" +
+        "確定要刪除請輸入大寫 DELETE：",
+    );
+    if (typed === null) return;
+    if (typed.trim() !== "DELETE") {
+      setNotice({ tone: "warning", text: "輸入的字不是 DELETE，已取消刪除。" });
+      return;
+    }
+    const result = await post({ action: "purge", confirm: "DELETE" });
+    if (result?.ok) setPurged(true);
+  };
+
   const reschedule = async () => {
     if (!newSlot) return;
     if (!window.confirm("確定改期？資料會先儲存，日曆與客戶通知由背景工作處理。")) return;
@@ -248,6 +271,15 @@ export default function AppointmentActions(props: Props) {
 
   const inactive = status === "cancelled" || status === "expired";
   const confirmedOrCompleted = status === "confirmed" || status === "completed";
+
+  // 刪掉之後這張卡片就不該再有任何可按的東西 —— 資料已經不存在，按了只會拿到 404
+  if (purged) {
+    return (
+      <div style={{ color: CIS.textMute, fontSize: 15, lineHeight: 1.8 }}>
+        🗑 這筆預約與相關紀錄已永久刪除。重新整理後就不會再出現在列表裡。
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -300,6 +332,17 @@ export default function AppointmentActions(props: Props) {
             取消預約
           </button>
         ) : null}
+        {/* 🔴 刻意放在 inactive 判斷之外：已取消的預約反而最常是要被刪掉的那筆。
+            上次就發生過「取消完按鈕全部消失、以為壞掉」，這顆不能再犯同樣的錯。 */}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void purge()}
+          style={{ ...buttonStyle("danger"), marginLeft: "auto", opacity: busy ? 0.62 : 0.75 }}
+          title="永久刪除這筆客戶資料（個資法刪除請求用），不可復原"
+        >
+          🗑 永久刪除個資
+        </button>
       </div>
 
       {!inactive ? (

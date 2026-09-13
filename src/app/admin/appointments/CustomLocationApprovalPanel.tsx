@@ -233,7 +233,7 @@ export default function CustomLocationApprovalPanel() {
             </label>
             <label style={{ color: CIS.textMute, fontSize: 14 }}>
               完整地址【必填】
-              <input value={address} onChange={(event) => setAddress(event.target.value)} maxLength={240} placeholder="台中市豐原區向陽路..." style={{ ...fieldStyle, marginTop: 5 }} />
+              <input value={address} onChange={(event) => setAddress(event.target.value)} maxLength={240} placeholder="苗栗縣竹南鎮公義路..." style={{ ...fieldStyle, marginTop: 5 }} />
             </label>
             <label style={{ color: CIS.textMute, fontSize: 14 }}>
               綁定電話【選填】

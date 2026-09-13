@@ -18,37 +18,28 @@ import {
 import type { AppointmentNotificationPurpose, MeetLocation } from "@/lib/appointment";
 import { createAppointmentManageToken } from "@/lib/appointment-token";
 import { db } from "@/lib/db";
-import { SOCIAL } from "@/config/owner";
+import { AGENCY, OWNER, SOCIAL } from "@/config/owner";
 
 const BINGE_EMAIL = process.env.APPOINTMENT_ADMIN_EMAIL || "your-email@example.com";
 const APPOINTMENT_BASE_URL = process.env.APPOINTMENT_BASE_URL || "https://example.com";
 const GENDER_HONOR: Record<string, string> = { male: "先生", female: "小姐" };
 const ABIN_PRIVATE_LINE_URL = SOCIAL.line;
+// 🔴 2026-09-13 修：這裡原本寫死「有巢氏房屋 福星店・台北市中正區範例路 1 號」——
+//    那是原始範本的假資料。客戶選「門市面談」後，Google 日曆的地點欄、
+//    以及確認信裡「開地圖導航」那顆按鈕，都會把人導去台北。
+//    真實門市資料本來就在 owner.ts，改成直接讀它，以後不會再有兩份各自漂移。
 const ABIN_OFFICE_LOCATION: MeetLocation = {
-  name: "有巢氏房屋 福星店",
-  address: "台北市中正區範例路 1 號",
+  name: AGENCY.storeName,
+  address: AGENCY.address,
   lat: null,
   lng: null,
   placeId: null,
   source: "manual",
 };
-const SHONKO_STUDIO_LOCATION: MeetLocation = {
-  name: "有巢氏房屋工作室",
-  address: "台中市西屯區烈美街55巷12號",
-  lat: null,
-  lng: null,
-  placeId: null,
-  source: "manual",
-};
-// 2026-07-17 新增：分公司（範例）
-const GOVIEW_HQ_LOCATION: MeetLocation = {
-  name: "分公司",
-  address: "台中市西屯區台灣大道三段660號4F-2（範例大樓）",
-  lat: null,
-  lng: null,
-  placeId: null,
-  source: "manual",
-};
+// 🔴 2026-09-13 刪：原本這裡還有「工作室」(台中市西屯區烈美街55巷12號) 與
+//    「分公司」(台中市西屯區台灣大道三段660號4F-2（範例大樓）) 兩組地點，
+//    同樣是範本假資料，而且對應的 hq / studio 兩個見面方式根本不在 MEET_TYPES 裡、
+//    前台永遠渲染不出來。留著只會有一天被誤用，直接移除。
 const TW_OFFSET_MS = 8 * 3600_000;
 
 export type NotifyInput = {
@@ -162,8 +153,6 @@ function icsEsc(s: string | null | undefined): string {
 function appointmentLocation(meetType: string, meetLocation?: MeetLocation | null): MeetLocation | null {
   if (meetType === "custom" && meetLocation) return meetLocation;
   if (meetType === "office") return ABIN_OFFICE_LOCATION;
-  if (meetType === "hq") return GOVIEW_HQ_LOCATION;
-  if (meetType === "studio") return SHONKO_STUDIO_LOCATION;
   return null;
 }
 
@@ -282,9 +271,9 @@ function realtorEmailLayout(opts: { title: string; preheader?: string; bodyHtml:
   <tr><td class="px" style="padding:28px 32px">${opts.bodyHtml}</td></tr>
   <tr><td style="background:#f7faf8;padding:20px 32px;border-top:1px solid #d8e7dd">
     <div style="font-size:13px;color:#64776f;line-height:1.8">
-      李建達 建達 ‧ 有巢氏房屋<br>
-      📞 0900-000-000　📍 台北市中正區範例路 1 號<br>
-      LINE：0900-000-000
+      ${esc(OWNER.name)} ‧ ${esc(AGENCY.storeName)}<br>
+      📞 ${esc(OWNER.phone)}　📍 ${esc(AGENCY.address)}<br>
+      門市電話：${esc(AGENCY.tel)}
     </div>
   </td></tr>
 </table>
@@ -310,7 +299,7 @@ function transactionalEmailLayout(opts: { title: string; preheader?: string; bod
   </td></tr>
   <tr><td class="px" style="padding:8px 30px 26px">${opts.bodyHtml}</td></tr>
   <tr><td style="padding:16px 30px;border-top:1px solid #e6f0ea">
-    <div style="font-size:13px;color:#64776f;line-height:1.7">李建達 建達 · 有巢氏房屋　LINE / 電話 0900-000-000</div>
+    <div style="font-size:13px;color:#64776f;line-height:1.7">${esc(OWNER.name)} · ${esc(AGENCY.storeName)}　電話 ${esc(OWNER.phone)}</div>
   </td></tr>
 </table>
 </td></tr></table></body></html>`;

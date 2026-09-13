@@ -85,10 +85,15 @@ const MODE_INTENTS: Record<BookingMode, IntentOption[]> = {
   ],
 };
 
+// 🔴 2026-09-13 修：原本三個清單裡都有 "hq"(總部) 與 "studio"(攝影棚)，
+//    但伺服器的 MEET_TYPES 只有 office / onsite / phone / video / custom，
+//    這裡是拿 MEET_TYPES 去 filter 的，所以那兩個永遠渲染不出來（死選項）。
+//    更糟的是它們在 appointment-notify.ts 對應到兩組台中的範例地址。一併移除。
+//    順帶：collaboration 原本沒有任何實體地點可選，改放門市。
 const MEET_TYPES_BY_MODE: Record<BookingMode, readonly string[]> = {
-  realtor: ["office", "hq", "studio", "phone", "video", "custom"],
-  collaboration: ["studio", "hq", "video", "phone", "custom"],
-  interview: ["office", "hq", "video", "phone"],
+  realtor: ["office", "phone", "video", "custom"],
+  collaboration: ["office", "video", "phone", "custom"],
+  interview: ["office", "video", "phone"],
 };
 
 const TW_OFFSET_MS = 8 * 60 * 60_000;
@@ -170,7 +175,7 @@ function qualificationFields(mode: BookingMode, intent: string) {
   }
   if (intent === "sell") {
     return [
-      { key: "propertyAddress", label: "物件大約位置", placeholder: "例：中正區範例路，填到路名即可", required: true },
+      { key: "propertyAddress", label: "物件大約位置", placeholder: "例：頭份市中央路、竹南鎮公義路，填到路名即可", required: true },
       { key: "propertyType", label: "物件類型", placeholder: "例：電梯大樓三房、透天", required: true },
       { key: "purpose", label: "出售原因／期待", placeholder: "例：換屋，希望先了解行情與銷售期", required: true, multiline: true },
       { key: "targetDate", label: "希望出售時間", placeholder: "例：3 個月內、先評估", required: true },

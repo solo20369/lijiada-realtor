@@ -34,6 +34,11 @@ export const INTENTS = [
   { key: "rent", label: "租賃", emoji: "🔑", placeholder: "例:想出租 or 想找租屋、區域、預算、什麼時候要" },
   { key: "manage", label: "包租代管", emoji: "🧰", placeholder: "例:頭份一間套房想交給人管、目前租金、有沒有租客" },
   { key: "tax", label: "稅務・資產配置", emoji: "⚖️", placeholder: "例:房地合一怎麼算、換屋順序、繼承過戶、貸款成數" },
+  // 🔴 2026-09-13 補：前台 BookingForm 的「房產法律」送出的代碼就是 "legal"，
+  //    但這份清單原本沒有它 —— create/route.ts 過濾後變空陣列，
+  //    appointment-public-validation.ts 再回「請至少選擇一項正確的預約需求」。
+  //    結果是：客戶選了房產法律就一定送不出去，繼承／漏水／買賣糾紛的案源全部靜默流失。
+  { key: "legal", label: "房產法律", emoji: "📜", placeholder: "例:繼承過戶、共有土地處分、漏水糾紛、買賣履約爭議" },
   { key: "interview", label: "面試", emoji: "🧑‍💼", placeholder: "例:應徵職位、方便聯絡的時間、想先了解的事", interviewOnly: true },
   { key: "other", label: "其他", emoji: "💬", placeholder: "簡單描述你想找建達聊的事" },
 ] as const;

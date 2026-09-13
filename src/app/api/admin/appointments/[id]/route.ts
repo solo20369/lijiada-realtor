@@ -23,11 +23,12 @@ import {
   createAppointmentFollowup,
   enqueueAppointmentOutbox,
   getAppointment,
+  purgeAppointment,
   setAppointmentSlot,
   setAppointmentStatus,
   updateAppointmentOperations,
 } from "@/lib/appointment";
-import { isGoogleConfigured } from "@/lib/google-calendar";
+import { deleteCalendarEvent, isGoogleBound, isGoogleConfigured } from "@/lib/google-calendar";
 import { runAppointmentOutboxOnce } from "@/lib/appointment-outbox-worker";
 
 export const dynamic = "force-dynamic";
@@ -247,6 +248,46 @@ export async function POST(
             ? { ok: true, notice: "已改期。" }
             : { saved: true, notice: "已改期，但背景通知沒有排入佇列。" },
         );
+      }
+
+      // ---- 個資刪除請求（不可復原）----
+      // 🔴 2026-09-13 新增。原本後台最多只能「取消」，而取消只改狀態、個資照留；
+      //    客戶依《個資法》要求刪除時，只能人工連進資料庫下 SQL。
+      case "purge": {
+        // 防呆：前端必須明確送出 confirm:"DELETE"，避免誤按一顆按鈕就把資料清掉
+        if (str(body.confirm, 16) !== "DELETE") {
+          return NextResponse.json(
+            { error: "刪除未確認。這個動作不可復原，請在確認視窗輸入 DELETE。" },
+            { status: 400 },
+          );
+        }
+
+        // 日曆事件要先撤 —— 主表一刪就拿不到 google_event_id，那筆事件會變成永遠清不掉的孤兒
+        let calendarNote = "";
+        if (appt.google_event_id) {
+          if (await isGoogleBound()) {
+            try {
+              await deleteCalendarEvent(appt.google_event_id);
+              calendarNote = "，Google 日曆事件已一併撤除";
+            } catch (error) {
+              console.error("[admin/appointments] purge 撤日曆事件失敗:", error);
+              calendarNote = "，但 Google 日曆上的事件沒撤成功，請自行到日曆刪除";
+            }
+          } else {
+            calendarNote = "，但目前沒有綁定 Google 日曆，該筆日曆事件需自行刪除";
+          }
+        }
+
+        const result = await purgeAppointment(id);
+        console.warn(
+          `[admin/appointments] PURGE ${id}（${appt.case_no || "無案號"}）`,
+          JSON.stringify(result.deleted),
+        );
+        return NextResponse.json({
+          ok: true,
+          purged: result.deleted,
+          notice: `已永久刪除這筆預約及其 ${result.total} 筆相關紀錄${calendarNote}。`,
+        });
       }
 
       default:

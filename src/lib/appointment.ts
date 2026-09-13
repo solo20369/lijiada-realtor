@@ -1267,6 +1267,55 @@ export async function setAppointmentStatus(id: string, status: string): Promise<
   }
 }
 
+/**
+ * 徹底刪除一筆預約及其所有附屬紀錄 —— 用於《個人資料保護法》的刪除請求。
+ *
+ * 🔴 2026-09-13 新增。在此之前系統完全沒有刪除功能：後台九個動作只到「取消」，
+ *    而取消只是把 status 改成 cancelled，個資原封不動留在庫裡。
+ *    客戶要求刪除時只能人工連進 TiDB 逐張表下 SQL。
+ *
+ * ⚠️ 不可復原。呼叫端必須先讓使用者二次確認，並自行備份。
+ *
+ * 順序很重要：先清附屬表再刪主表，否則主表沒了就查不到要清哪些附屬列。
+ * 其中 appointment_slot_lock 一定要清，不然那個時段會被一筆已不存在的預約永久佔住。
+ *
+ * 註：appointment_location_approval 沒有 appointment_id 欄位（它是以 token 為主鍵的核准紀錄），
+ *     不在這裡處理；若該筆核准含客戶識別提示需一併移除，要另外用 token 刪。
+ */
+export type PurgeResult = { deleted: Record<string, number>; total: number };
+
+export async function purgeAppointment(id: string): Promise<PurgeResult> {
+  await ensureAppointmentTable();
+  const deleted: Record<string, number> = {};
+
+  const children = [
+    "appointment_slot_lock",
+    "appointment_notification_log",
+    "appointment_funnel_event",
+    "appointment_followup",
+    "appointment_outbox",
+  ] as const;
+
+  for (const table of children) {
+    try {
+      // 表名是上面寫死的白名單常數，不是使用者輸入，故可安全插進 SQL 字串
+      deleted[table] = await db.$executeRawUnsafe(
+        `DELETE FROM ${table} WHERE appointment_id = ?`,
+        id,
+      );
+    } catch (e) {
+      // 某張附屬表不存在（舊環境還沒建）不該擋住主表刪除 —— 刪不掉的照實記 -1
+      console.error(`[appointment] purge ${table} 失敗:`, e);
+      deleted[table] = -1;
+    }
+  }
+
+  deleted.appointment = await db.$executeRaw`DELETE FROM appointment WHERE id = ${id}`;
+
+  const total = Object.values(deleted).reduce((sum, n) => sum + (n > 0 ? n : 0), 0);
+  return { deleted, total };
+}
+
 /** 改期(admin 後台 + 客戶自助共用):不限營業時段,但一律強制搶 slot lock、不允許雙約(撞號回 409)。 */
 export async function setAppointmentSlot(
   id: string,
